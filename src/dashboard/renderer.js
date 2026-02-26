@@ -245,11 +245,10 @@ export function renderView(state, layout = {}) {
       pushWrapped(`File: ${formatPath(view.filePath)}`, chalk.green);
     }
 
-    const detailTwoColumn = contentWidth >= 92 && termRows >= 24;
+    // 항상 2열 레이아웃 적용
+    const detailTwoColumn = true;
     const separatorWidth = 3;
-    const detailColumnWidth = detailTwoColumn
-      ? Math.max(24, Math.floor((contentWidth - separatorWidth) / 2))
-      : Math.max(20, contentWidth);
+    const detailColumnWidth = Math.max(24, Math.floor((contentWidth - separatorWidth) / 2));
 
     const BAR = chalk.cyan('\u258F');
     const SAMPLE_BAR = chalk.dim('\u2502');

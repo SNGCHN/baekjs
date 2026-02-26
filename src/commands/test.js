@@ -2,10 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
+import vm from 'vm';
+import util from 'util';
+import { createRequire } from 'module';
 import chalk from 'chalk';
 import { ensureConfigInteractive, getProjectRoot, getProblemFilePath, isValidProblemId } from '../config.js';
 import { compileSubmission } from '../compiler.js';
 import { getSamples, ProviderError } from '../boj.js';
+
+const hostRequire = createRequire(import.meta.url);
 
 function normalizeOutput(value) {
   return value.replace(/\r\n/g, '\n').trimEnd();
@@ -117,11 +122,157 @@ async function resolveSamples(problemId, options = {}) {
 }
 
 function executeCase(compiledCode, inputText, timeoutMs) {
-  return spawnSync(process.execPath, ['-e', compiledCode], {
+  const result = spawnSync(process.execPath, ['-e', compiledCode], {
     input: inputText,
     encoding: 'utf8',
     timeout: timeoutMs
   });
+
+  if (result.error?.code === 'EPERM' || result.error?.code === 'EACCES') {
+    return executeCaseWithVm(compiledCode, inputText, timeoutMs);
+  }
+
+  return result;
+}
+
+function createReadlineMock(inputText) {
+  const normalizedInput = String(inputText).replace(/\r\n/g, '\n');
+  const lines = normalizedInput.length === 0
+    ? []
+    : normalizedInput.endsWith('\n')
+      ? normalizedInput.slice(0, -1).split('\n')
+      : normalizedInput.split('\n');
+
+  return {
+    createInterface() {
+      const listeners = { line: [], close: [] };
+      let closed = false;
+
+      const emitClose = () => {
+        if (closed) return;
+        closed = true;
+        for (const handler of listeners.close) {
+          handler();
+        }
+      };
+
+      const emitLinesAndClose = () => {
+        if (closed) return;
+        for (const line of lines) {
+          for (const handler of listeners.line) {
+            handler(line);
+          }
+        }
+        emitClose();
+      };
+
+      const api = {
+        on(event, handler) {
+          if ((event === 'line' || event === 'close') && typeof handler === 'function') {
+            listeners[event].push(handler);
+          }
+          if (listeners.close.length > 0) {
+            emitLinesAndClose();
+          }
+          return api;
+        },
+        close() {
+          emitClose();
+          return api;
+        }
+      };
+
+      return api;
+    }
+  };
+}
+
+function executeCaseWithVm(compiledCode, inputText, timeoutMs) {
+  const stdout = [];
+  const stderr = [];
+  const writeStdout = (...args) => {
+    stdout.push(`${util.format(...args)}\n`);
+  };
+  const writeStderr = (...args) => {
+    stderr.push(`${util.format(...args)}\n`);
+  };
+
+  const fsMock = {
+    readFileSync(target, encoding) {
+      if (target === 0 || target === '0') {
+        if (typeof encoding === 'string' && encoding.toLowerCase() === 'utf8') {
+          return String(inputText);
+        }
+        return Buffer.from(String(inputText), 'utf8');
+      }
+      throw new Error('VM fallback supports fs.readFileSync(0) only.');
+    }
+  };
+
+  const readlineMock = createReadlineMock(inputText);
+
+  const requireMock = (moduleName) => {
+    if (moduleName === 'fs') return fsMock;
+    if (moduleName === 'readline') return readlineMock;
+    if (moduleName === 'child_process' || moduleName === 'worker_threads' || moduleName === 'cluster') {
+      throw new Error(`Module "${moduleName}" is not allowed in VM fallback runtime.`);
+    }
+    return hostRequire(moduleName);
+  };
+
+  const processMock = {
+    stdin: {},
+    stdout: { write: (chunk) => stdout.push(String(chunk)) },
+    stderr: { write: (chunk) => stderr.push(String(chunk)) },
+    env: {},
+    argv: [],
+    cwd: () => process.cwd(),
+    nextTick: process.nextTick.bind(process),
+    exit(code = 0) {
+      throw new Error(`process.exit(${code}) is not allowed in VM fallback runtime.`);
+    }
+  };
+
+  const moduleObj = { exports: {} };
+  const sandbox = {
+    require: requireMock,
+    module: moduleObj,
+    exports: moduleObj.exports,
+    console: {
+      log: writeStdout,
+      info: writeStdout,
+      warn: writeStderr,
+      error: writeStderr
+    },
+    process: processMock,
+    Buffer,
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval,
+    queueMicrotask
+  };
+  sandbox.global = sandbox;
+  sandbox.globalThis = sandbox;
+
+  try {
+    const context = vm.createContext(sandbox);
+    const script = new vm.Script(compiledCode, { filename: 'submission.js' });
+    script.runInContext(context, { timeout: timeoutMs });
+    return {
+      status: 0,
+      stdout: stdout.join(''),
+      stderr: stderr.join(''),
+      runtime: 'vm-fallback'
+    };
+  } catch (error) {
+    return {
+      status: 1,
+      stdout: stdout.join(''),
+      stderr: error?.stack || error?.message || String(error),
+      runtime: 'vm-fallback'
+    };
+  }
 }
 
 export async function testProblem(problemId, options = {}) {
@@ -175,12 +326,18 @@ export async function testProblem(problemId, options = {}) {
 
   let passCount = 0;
   const timeoutMs = config.runner?.timeoutMs || 2000;
+  let warnedVmFallback = false;
 
   for (const sample of samples) {
     if (sample !== samples[0]) {
       console.log(chalk.dim('  ─────────────────────────────'));
     }
     const result = executeCase(compiledCode, sample.input, timeoutMs);
+
+    if (result.runtime === 'vm-fallback' && !warnedVmFallback) {
+      warnedVmFallback = true;
+      console.log(chalk.yellow('Permission error while spawning Node process. Using VM fallback runtime.'));
+    }
 
     if (result.error) {
       console.log(chalk.red(`케이스 #${sample.id}: 오류 (${result.error.message})`));

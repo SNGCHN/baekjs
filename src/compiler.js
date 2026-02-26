@@ -30,10 +30,14 @@ function buildReadlinePrelude(userCode) {
 }
 
 function buildFunctionInvokeRuntime(solutionRef = 'solution') {
+  const solutionResolveLine = solutionRef === 'solution'
+    ? "const __sol = typeof solution === 'function' ? solution : undefined;"
+    : `const __sol = ${solutionRef};`;
+
   return [
-    `const __sol = ${solutionRef};`,
+    solutionResolveLine,
     "if (typeof __sol !== 'function') {",
-    "  throw new Error('solution function is required.');",
+    "  throw new Error('solution 함수가 정의되지 않았습니다. const solution = (input) => { }; 형태로 작성해주세요.');",
     '}',
     'const __nativeLog = console.log.bind(console);',
     'let __didPrint = false;',
@@ -66,9 +70,19 @@ function buildFunctionInvokeRuntime(solutionRef = 'solution') {
   ].join('\n');
 }
 
+function stripComments(sourceCode) {
+  return sourceCode
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+}
+
 function buildFunctionRuntime(sourceCode) {
   const trimmed = sourceCode.trim();
   const usesModuleExports = /module\.exports\s*=/.test(trimmed);
+  const codeWithoutComments = stripComments(trimmed);
+  const definesSolution =
+    /\b(?:async\s+)?function\s+solution\s*\(/.test(codeWithoutComments) ||
+    /\b(?:const|let|var)\s+solution\s*=/.test(codeWithoutComments);
 
   if (usesModuleExports) {
     return [
@@ -79,6 +93,10 @@ function buildFunctionRuntime(sourceCode) {
       buildFunctionInvokeRuntime('module.exports'),
       ''
     ].join('\n');
+  }
+
+  if (!definesSolution) {
+    return `${trimmed}\n`;
   }
 
   return [

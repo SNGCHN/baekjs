@@ -671,6 +671,8 @@ export async function runDashboard() {
 
         if (selectedAction.id === 'test' || selectedAction.id === 'export') {
           suspendDashboardUi();
+          const originalExitCode = process.exitCode;
+          process.exitCode = 0;
           try {
             if (selectedAction.id === 'test') {
               console.log(chalk.cyan(`\n  예제 테스트: ${current.problem.problemId}\n`));
@@ -685,6 +687,7 @@ export async function runDashboard() {
             state.statusMessage = `Error: ${normalizeError(error)}`;
             console.error(chalk.red(`\nError: ${normalizeError(error)}\n`));
           } finally {
+            process.exitCode = originalExitCode;
             resumeDashboardUi();
           }
           return;
