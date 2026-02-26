@@ -126,7 +126,7 @@ function executeCase(compiledCode, inputText, timeoutMs) {
 
 export async function testProblem(problemId, options = {}) {
   if (!isValidProblemId(problemId)) {
-    console.error(chalk.red('잘못된 문제 번호입니다. 숫자만 입력하세요. 예시: bj test 1000'));
+    console.error(chalk.red('잘못된 문제 번호입니다. 숫자만 입력하세요. 예시: bjs test 1000'));
     process.exitCode = 1;
     return;
   }
@@ -137,7 +137,7 @@ export async function testProblem(problemId, options = {}) {
 
   if (!fs.existsSync(sourcePath)) {
     console.error(chalk.red(`문제 파일을 찾을 수 없습니다: problem/${problemId}.js`));
-    console.error(chalk.yellow(`다음 명령으로 생성하세요: bj create ${problemId}`));
+    console.error(chalk.yellow(`다음 명령으로 생성하세요: bjs create ${problemId}`));
     process.exitCode = 1;
     return;
   }
@@ -145,7 +145,6 @@ export async function testProblem(problemId, options = {}) {
   const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
   const compiledCode = compileSubmission({
     sourceCode,
-    templateStyle: config.templateStyle,
     ioMode: config.ioMode
   });
 

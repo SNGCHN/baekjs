@@ -29,6 +29,43 @@ function buildReadlinePrelude(userCode) {
   ].join('\n');
 }
 
+function buildFunctionInvokeRuntime(solutionRef = 'solution') {
+  return [
+    `const __sol = ${solutionRef};`,
+    "if (typeof __sol !== 'function') {",
+    "  throw new Error('solution function is required.');",
+    '}',
+    'const __nativeLog = console.log.bind(console);',
+    'let __didPrint = false;',
+    'console.log = (...args) => {',
+    '  __didPrint = true;',
+    '  __nativeLog(...args);',
+    '};',
+    'const __hasMultiLineInput = /[\\r\\n]/.test(input);',
+    'const __tokens = input.length ? input.split(/\\s+/) : [];',
+    "const __autoCast = (v) => (/^[-+]?\\d+(?:\\.\\d+)?$/.test(v) ? Number(v) : v);",
+    'const __arity = Number(__sol.length) || 0;',
+    "if (__arity > 1 && __hasMultiLineInput) {",
+    "  throw new Error('Multi-parameter mode supports single-line input only. Use solution(input) for complex input.');",
+    '}',
+    'const __args = __arity <= 1 ? [input] : __tokens.slice(0, __arity).map(__autoCast);',
+    'const __print = (value) => {',
+    '  if (__didPrint) return;',
+    '  if (value === undefined) return;',
+    "  if (Array.isArray(value)) console.log(value.join('\\n'));",
+    "  else if (value && typeof value === 'object') console.log(JSON.stringify(value));",
+    '  else console.log(String(value));',
+    '};',
+    'const __ret = __sol(...__args);',
+    "if (__ret && typeof __ret.then === 'function') {",
+    '  __ret.then(__print).catch((err) => { throw err; });',
+    '} else {',
+    '  __print(__ret);',
+    '}',
+    ''
+  ].join('\n');
+}
+
 function buildFunctionRuntime(sourceCode) {
   const trimmed = sourceCode.trim();
   const usesModuleExports = /module\.exports\s*=/.test(trimmed);
@@ -39,11 +76,7 @@ function buildFunctionRuntime(sourceCode) {
       'const exports = module.exports;',
       trimmed,
       '',
-      'const __sol = module.exports;',
-      "if (typeof __sol !== 'function') {",
-      "  throw new Error('module.exports에 함수를 할당하세요.');",
-      '}',
-      '__sol(input);',
+      buildFunctionInvokeRuntime('module.exports'),
       ''
     ].join('\n');
   }
@@ -51,25 +84,14 @@ function buildFunctionRuntime(sourceCode) {
   return [
     trimmed,
     '',
-    "if (typeof solution !== 'function') {",
-    "  throw new Error('function solution(input) { ... } 형태로 작성하세요.');",
-    '}',
-    'solution(input);',
+    buildFunctionInvokeRuntime('solution'),
     ''
   ].join('\n');
 }
 
-function buildGlobalRuntime(sourceCode) {
-  return `${sourceCode.trim()}\n`;
-}
-
-export function compileSubmission({ sourceCode, templateStyle, ioMode }) {
-  const normalizedStyle = templateStyle === 'global' ? 'global' : 'function';
+export function compileSubmission({ sourceCode, ioMode }) {
   const normalizedIoMode = ioMode === 'fs' ? 'fs' : 'readline';
-  const runtimeCode =
-    normalizedStyle === 'function'
-      ? buildFunctionRuntime(sourceCode)
-      : buildGlobalRuntime(sourceCode);
+  const runtimeCode = buildFunctionRuntime(sourceCode);
 
   if (normalizedIoMode === 'fs') {
     return `${buildFsPrelude()}${runtimeCode}`;
@@ -77,4 +99,3 @@ export function compileSubmission({ sourceCode, templateStyle, ioMode }) {
 
   return buildReadlinePrelude(runtimeCode);
 }
-

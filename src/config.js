@@ -32,7 +32,6 @@ export function getProjectRoot(cwd = process.cwd()) {
 
 export const DEFAULT_CONFIG = {
   configVersion: 1,
-  templateStyle: 'function',
   ioMode: 'readline',
   provider: 'boj',
   user: { handle: '' },
@@ -63,8 +62,7 @@ export function loadConfig(cwd = process.cwd()) {
 export function migrateConfig(config) {
   let migrated = { ...config };
   if (!migrated.configVersion) migrated.configVersion = 1;
-  migrated.templateStyle = (migrated.templateStyle === 'function' || migrated.templateStyle === 'global')
-    ? migrated.templateStyle : DEFAULT_CONFIG.templateStyle;
+  delete migrated.templateStyle;
   migrated.ioMode = (migrated.ioMode === 'readline' || migrated.ioMode === 'fs')
     ? migrated.ioMode : DEFAULT_CONFIG.ioMode;
   migrated.provider = migrated.provider || DEFAULT_CONFIG.provider;
@@ -101,17 +99,12 @@ async function promptInitialConfig() {
   try {
     console.log('First-time setup for baekjs');
 
-    const templateStyle = await askChoice(rl, '코드 작성 스타일을 선택하세요', [
-      { key: '1', value: 'function', label: 'Function (Recommended)' },
-      { key: '2', value: 'global', label: 'Global' }
-    ], '1');
-
     const ioMode = await askChoice(rl, '입력 어댑터를 선택하세요', [
       { key: '1', value: 'readline', label: 'readline (Recommended)' },
       { key: '2', value: 'fs', label: 'fs' }
     ], '1');
 
-    return migrateConfig({ ...DEFAULT_CONFIG, templateStyle, ioMode });
+    return migrateConfig({ ...DEFAULT_CONFIG, ioMode });
   } finally {
     rl.close();
   }
@@ -136,15 +129,14 @@ export function getProblemFilePath(problemId, cwd = process.cwd()) {
   return path.join(resolveProjectRoot(cwd), 'problem', `${problemId}.js`);
 }
 
-export function ensureProblemFile(problemId, { projectRoot, templateStyle }) {
+export function ensureProblemFile(problemId, { projectRoot }) {
   const problemDir = path.join(projectRoot, 'problem');
   if (!fs.existsSync(problemDir)) fs.mkdirSync(problemDir, { recursive: true });
 
   const filePath = path.join(problemDir, `${problemId}.js`);
   if (fs.existsSync(filePath)) return { created: false, filePath };
 
-  const templateFileName = templateStyle === 'global' ? 'global.js' : 'function.js';
-  const templatePath = new URL(`./templates/${templateFileName}`, import.meta.url);
+  const templatePath = new URL('./templates/function.js', import.meta.url);
   const templateContent = fs.readFileSync(templatePath, 'utf-8');
   fs.writeFileSync(filePath, templateContent, 'utf-8');
   return { created: true, filePath };

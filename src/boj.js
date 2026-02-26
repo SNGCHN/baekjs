@@ -9,16 +9,45 @@ export class ProviderError extends Error {
   }
 }
 
-function decodeHtml(value) {
-  const named = String(value)
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+const HTML_ENTITIES = {
+  lt: '<', gt: '>', amp: '&', nbsp: ' ', quot: '"', apos: "'",
+  // math operators
+  times: '×', divide: '÷', minus: '−', plusmn: '±',
+  le: '≤', ge: '≥', ne: '≠', asymp: '≈', equiv: '≡',
+  sum: '∑', prod: '∏', infin: '∞', radic: '√',
+  lfloor: '⌊', rfloor: '⌋', lceil: '⌈', rceil: '⌉',
+  // greek
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ',
+  epsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ',
+  iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ',
+  nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ',
+  sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ',
+  chi: 'χ', psi: 'ψ', omega: 'ω',
+  Sigma: 'Σ', Pi: 'Π', Omega: 'Ω', Delta: 'Δ', Theta: 'Θ',
+  // arrows & logic
+  larr: '←', rarr: '→', uarr: '↑', darr: '↓', harr: '↔',
+  lArr: '⇐', rArr: '⇒', hArr: '⇔',
+  forall: '∀', exist: '∃', isin: '∈', notin: '∉',
+  sub: '⊂', sup: '⊃', sube: '⊆', supe: '⊇',
+  cap: '∩', cup: '∪', and: '∧', or: '∨', not: '¬',
+  // misc symbols
+  hellip: '…', middot: '·', bull: '•',
+  ndash: '–', mdash: '—',
+  lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201C', rdquo: '\u201D',
+  prime: '′', Prime: '″', deg: '°',
+  cent: '¢', pound: '£', yen: '¥', euro: '€',
+  copy: '©', reg: '®', trade: '™',
+  permil: '‰', micro: 'µ', para: '¶', sect: '§',
+  sup1: '¹', sup2: '²', sup3: '³',
+  frac12: '½', frac14: '¼', frac34: '¾',
+  empty: '∅', nabla: '∇', part: '∂', prop: '∝',
+  oplus: '⊕', otimes: '⊗', perp: '⊥',
+  loz: '◊', spades: '♠', clubs: '♣', hearts: '♥', diams: '♦',
+};
 
-  return named
+function decodeHtml(value) {
+  return String(value)
+    .replace(/&([a-zA-Z]+);/g, (full, name) => HTML_ENTITIES[name] ?? full)
     .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
       String.fromCharCode(Number.parseInt(hex, 16))

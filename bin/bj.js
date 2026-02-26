@@ -8,9 +8,9 @@ import { initProject } from '../src/commands/init.js';
 import { createProblem } from '../src/commands/create.js';
 import { testProblem } from '../src/commands/test.js';
 import { exportProblem } from '../src/commands/export.js';
-import { runDashboard } from '../src/dashboard.js';
+import { runDashboard } from '../src/dashboard/index.js';
 
-const cli = cac('bj');
+const cli = cac('bjs');
 
 if (process.argv.slice(2).length === 0) {
   await runDashboard();

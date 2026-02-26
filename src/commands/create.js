@@ -5,7 +5,7 @@ import { ensureConfigInteractive, getProjectRoot, isValidProblemId } from '../co
 
 export async function createProblem(problemId) {
   if (!isValidProblemId(problemId)) {
-    console.log(chalk.red('Invalid problemId. Use digits only. Example: bj create 1000'));
+    console.log(chalk.red('Invalid problemId. Use digits only. Example: bjs create 1000'));
     return;
   }
 
@@ -23,13 +23,9 @@ export async function createProblem(problemId) {
     return;
   }
 
-  // 최초 실행이면 여기서 즉시 설정을 생성/선택
-  const config = await ensureConfigInteractive(projectRoot);
-  const style = config.templateStyle || 'function';
-  
-  // 템플릿 파일 이름 확인
-  const templateFileName = style === 'function' ? 'function.js' : 'global.js';
-  const templatePath = new URL(`../templates/${templateFileName}`, import.meta.url);
+  await ensureConfigInteractive(projectRoot);
+
+  const templatePath = new URL('../templates/function.js', import.meta.url);
 
   try {
     const templateContent = fs.readFileSync(templatePath, 'utf-8');
@@ -37,8 +33,8 @@ export async function createProblem(problemId) {
     if (projectRoot !== process.cwd()) {
       console.log(chalk.blue(`Using project root: ${projectRoot}`));
     }
-    console.log(chalk.green(`Created file: problem/${problemId}.js (template: ${style})`));
+    console.log(chalk.green(`Created file: problem/${problemId}.js`));
   } catch (error) {
-    console.error(chalk.red(`Failed to generate template from ${templateFileName}.`), error.message);
+    console.error(chalk.red('Failed to generate template.'), error.message);
   }
 }

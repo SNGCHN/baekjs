@@ -4,7 +4,7 @@
   "description": "터미널에서 백준 문제 탐색, 풀이, 테스트, 제출 코드 생성까지. IDE 안에서 BOJ를 풀자.",
   "type": "module",
   "bin": {
-    "bj": "bin/bj.js",
+    "bjs": "bin/bj.js",
     "baekjs": "bin/bj.js"
   },
   "files": [
