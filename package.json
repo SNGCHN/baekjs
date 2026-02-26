@@ -1,0 +1,45 @@
+{
+  "name": "baekjs",
+  "version": "1.0.1",
+  "description": "터미널에서 백준 문제 탐색, 풀이, 테스트, 제출 코드 생성까지. IDE 안에서 BOJ를 풀자.",
+  "type": "module",
+  "bin": {
+    "bj": "bin/bj.js",
+    "baekjs": "bin/bj.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node ./bin/bj.js",
+    "pack:dry-run": "npm pack --dry-run",
+    "publish:dry-run": "npm publish --dry-run"
+  },
+  "keywords": [
+    "boj",
+    "baekjoon",
+    "백준",
+    "algorithm",
+    "competitive-programming",
+    "cli",
+    "solved-ac",
+    "ps"
+  ],
+  "author": "SNGCHN",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SNGCHN/baekjs.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cac": "^6.7.14",
+    "chalk": "^5.3.0"
+  },
+  "packageManager": "pnpm@10.27.0"
+}
