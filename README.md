@@ -43,7 +43,7 @@ const solution = (input) => {
   +----------------------------------------------------+
   |                                                    |
   | User: baekjs                                       |
-  | Rank #202,740 | Solved 4 | Rating 32             |
+  | Rank #202,740 | Solved 4 | Rating 32               |
   | Tier: Silver V | Class 0                           |
   |                                                    |
   +----------------------------------------------------+
