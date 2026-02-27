@@ -296,14 +296,14 @@ export function renderView(state, layout = {}) {
     lines.push('');
     if (detailTwoColumn) {
       const SEP = chalk.dim(' \u2502 ');
-      lines.push(chalk.dim(`  ${'─'.repeat(detailColumnWidth)}┬${'─'.repeat(detailColumnWidth)}`));
+      lines.push(chalk.dim(`  ${'─'.repeat(detailColumnWidth)}─┬─${'─'.repeat(detailColumnWidth)}`));
       const maxRows = Math.max(leftLines.length, rightLines.length);
       for (let i = 0; i < maxRows; i++) {
         const left = padEndVisual(leftLines[i] || '', detailColumnWidth);
         const right = padEndVisual(rightLines[i] || '', detailColumnWidth);
         lines.push(`  ${left}${SEP}${right}`);
       }
-      lines.push(chalk.dim(`  ${'─'.repeat(detailColumnWidth)}┴${'─'.repeat(detailColumnWidth)}`));
+      lines.push(chalk.dim(`  ${'─'.repeat(detailColumnWidth)}─┴─${'─'.repeat(detailColumnWidth)}`));
     } else {
       lines.push(chalk.dim(`  ${'─'.repeat(contentWidth)}`));
       leftLines.forEach((line) => lines.push(`  ${line}`));
