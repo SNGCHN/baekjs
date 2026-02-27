@@ -8,10 +8,26 @@ baekjs.config.json
 convert/
 problem/
 
+# Local temp/cache artifacts
+.tmp-*.json
+.tmp-*.js
+*.tmp
+.cache/
+coverage/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Package artifacts
 *.tgz
 
 # Logs
+*.log
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
@@ -20,5 +36,7 @@ yarn-error.log*
 # OS / editor noise
 .DS_Store
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 .vscode/
 .idea/

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Bash(cd:*)",
+      "Bash(git -C \"c:\\\\Users\\\\sngch\\\\바탕 화면\\\\Project\\\\baekjs\" diff HEAD -- src/templates/function.js)",
+      "Bash(git -C \"c:\\\\Users\\\\sngch\\\\바탕 화면\\\\Project\\\\baekjs\" diff HEAD -- bin/bj.js)"
     ]
   }
 }

@@ -12,6 +12,14 @@ import { getSamples, ProviderError } from '../boj.js';
 
 const hostRequire = createRequire(import.meta.url);
 
+class VmProcessExit extends Error {
+  constructor(code = 0) {
+    super(`process.exit(${code})`);
+    this.name = 'VmProcessExit';
+    this.exitCode = Number.isFinite(Number(code)) ? Number(code) : 0;
+  }
+}
+
 function normalizeOutput(value) {
   return value.replace(/\r\n/g, '\n').trimEnd();
 }
@@ -198,14 +206,11 @@ function executeCaseWithVm(compiledCode, inputText, timeoutMs) {
   };
 
   const fsMock = {
-    readFileSync(target, encoding) {
-      if (target === 0 || target === '0') {
-        if (typeof encoding === 'string' && encoding.toLowerCase() === 'utf8') {
-          return String(inputText);
-        }
+    readFileSync(target) {
+      if (target === '/dev/stdin') {
         return Buffer.from(String(inputText), 'utf8');
       }
-      throw new Error('VM fallback supports fs.readFileSync(0) only.');
+      throw new Error("VM fallback: fs.readFileSync only supports '/dev/stdin'.");
     }
   };
 
@@ -229,7 +234,7 @@ function executeCaseWithVm(compiledCode, inputText, timeoutMs) {
     cwd: () => process.cwd(),
     nextTick: process.nextTick.bind(process),
     exit(code = 0) {
-      throw new Error(`process.exit(${code}) is not allowed in VM fallback runtime.`);
+      throw new VmProcessExit(code);
     }
   };
 
@@ -266,6 +271,15 @@ function executeCaseWithVm(compiledCode, inputText, timeoutMs) {
       runtime: 'vm-fallback'
     };
   } catch (error) {
+    if (error instanceof VmProcessExit) {
+      return {
+        status: error.exitCode,
+        stdout: stdout.join(''),
+        stderr: '',
+        runtime: 'vm-fallback'
+      };
+    }
+
     return {
       status: 1,
       stdout: stdout.join(''),
@@ -294,10 +308,17 @@ export async function testProblem(problemId, options = {}) {
   }
 
   const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
-  const compiledCode = compileSubmission({
-    sourceCode,
-    ioMode: config.ioMode
-  });
+  let compiledCode;
+  try {
+    compiledCode = compileSubmission({
+      sourceCode,
+      ioMode: config.ioMode
+    });
+  } catch (error) {
+    console.error(chalk.red(error.message));
+    process.exitCode = 1;
+    return;
+  }
 
   let samplesBundle;
   try {
@@ -360,11 +381,11 @@ export async function testProblem(problemId, options = {}) {
       console.log(chalk.green(`케이스 #${sample.id}: 통과`));
     } else {
       console.log(chalk.red(`케이스 #${sample.id}: 실패`));
-      console.log(chalk.yellow('기대값:'));
-      console.log(expected);
-      console.log(chalk.yellow('실제값:'));
-      console.log(actual);
     }
+    console.log(chalk.yellow('기대값:'));
+    console.log(expected);
+    console.log(chalk.yellow('실제값:'));
+    console.log(actual);
   }
 
   if (passCount === samples.length) {

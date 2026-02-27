@@ -27,10 +27,14 @@ export async function exportProblem(problemId, options = {}) {
   }
 
   const sourceCode = fs.readFileSync(sourcePath, 'utf-8');
-  const compiled = compileSubmission({
-    sourceCode,
-    ioMode: config.ioMode
-  });
+  let compiled;
+  try {
+    compiled = compileSubmission({ sourceCode, ioMode: config.ioMode });
+  } catch (error) {
+    console.error(chalk.red(error.message));
+    process.exitCode = 1;
+    return;
+  }
 
   if (options.print) {
     process.stdout.write(`${compiled}\n`);
@@ -48,13 +52,8 @@ export async function exportProblem(problemId, options = {}) {
   }
 
   let displayPath = path.relative(process.cwd(), outPath);
-  if (displayPath.startsWith('..')) {
-    displayPath = outPath;
-  }
-  if (displayPath.includes(' ')) {
-    displayPath = `"${displayPath}"`;
-  }
+  if (displayPath.startsWith('..')) displayPath = outPath;
+  if (displayPath.includes(' ')) displayPath = `"${displayPath}"`;
 
   console.log(chalk.green(`변환 완료: ${displayPath}`));
-  console.log(chalk.cyan('팁: --print 옵션으로 터미널에 직접 출력할 수 있습니다.'));
 }

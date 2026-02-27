@@ -33,6 +33,7 @@ export function getProjectRoot(cwd = process.cwd()) {
 export const DEFAULT_CONFIG = {
   configVersion: 1,
   ioMode: 'readline',
+  templateComments: true,
   provider: 'boj',
   user: { handle: '' },
   runner: { timeoutMs: 2000 }
@@ -68,6 +69,8 @@ export function migrateConfig(config) {
   migrated.provider = migrated.provider || DEFAULT_CONFIG.provider;
   migrated.user = { ...DEFAULT_CONFIG.user, ...(migrated.user || {}) };
   if (typeof migrated.user.handle !== 'string') migrated.user.handle = DEFAULT_CONFIG.user.handle;
+  migrated.templateComments = typeof migrated.templateComments === 'boolean'
+    ? migrated.templateComments : DEFAULT_CONFIG.templateComments;
   migrated.runner = { ...DEFAULT_CONFIG.runner, ...(migrated.runner || {}) };
   return migrated;
 }
@@ -119,6 +122,15 @@ async function askChoice(rl, title, options, defaultKey) {
   return selected ? selected.value : options.find((o) => o.key === defaultKey).value;
 }
 
+/* ── template helpers ─────────────────────────────────── */
+
+export function stripTemplateComments(code) {
+  return code
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('//'))
+    .join('\n');
+}
+
 /* ── problem helpers ──────────────────────────────────── */
 
 export function isValidProblemId(problemId) {
@@ -137,7 +149,13 @@ export function ensureProblemFile(problemId, { projectRoot }) {
   if (fs.existsSync(filePath)) return { created: false, filePath };
 
   const templatePath = new URL('./templates/function.js', import.meta.url);
-  const templateContent = fs.readFileSync(templatePath, 'utf-8');
+  let templateContent = fs.readFileSync(templatePath, 'utf-8');
+
+  const config = loadConfig(projectRoot);
+  if (!config.templateComments) {
+    templateContent = stripTemplateComments(templateContent);
+  }
+
   fs.writeFileSync(filePath, templateContent, 'utf-8');
   return { created: true, filePath };
 }

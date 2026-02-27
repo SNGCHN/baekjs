@@ -328,6 +328,38 @@ export function renderView(state, layout = {}) {
     };
   }
 
+  if (view.type === 'settings') {
+    lines.push(chalk.bold('  설정'));
+    lines.push('');
+
+    const settingStart = lines.length;
+    for (let idx = 0; idx < view.items.length; idx++) {
+      const item = view.items[idx];
+      const isActive = idx === view.index;
+      const prefix = isActive ? chalk.cyan('  > ') : '    ';
+
+      if (item.id === 'back') {
+        lines.push('');
+        lines.push(isActive ? chalk.cyan('  > 돌아가기') : chalk.dim('    돌아가기'));
+      } else {
+        const label = padEndVisual(item.label, 16);
+        let display;
+        if (item.id === 'templateComments') {
+          display = item.value ? chalk.green('ON') : chalk.red('OFF');
+        } else {
+          display = chalk.white(String(item.value));
+        }
+        lines.push(`${prefix}${label} ${display}`);
+      }
+    }
+
+    return {
+      lines,
+      focusLine: settingStart + view.index,
+      itemInfo: { current: view.index + 1, total: view.items.length }
+    };
+  }
+
   if (view.type === 'profile') {
     const o = state.userOverview;
     if (!o) return { lines: [chalk.yellow('  Loading profile...')] };

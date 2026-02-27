@@ -1,3 +1,34 @@
+function normalizeSource(code) {
+  return code.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+}
+
+function stripComments(code) {
+  return code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
+
+function validateSource(code) {
+  const stripped = stripComments(code);
+  const hasSolution =
+    /\b(?:async\s+)?function\s+solution\s*\(/.test(stripped) ||
+    /\b(?:const|let|var)\s+solution\s*=/.test(stripped);
+
+  if (!hasSolution) {
+    throw new Error(
+      'solution 함수를 찾을 수 없습니다. const solution = (input) => { }; 형태로 작성해주세요.'
+    );
+  }
+}
+
+function buildPrintBlock(indent = '') {
+  return [
+    `${indent}const __result = solution(input);`,
+    `${indent}if (__result !== undefined) {`,
+    `${indent}  if (Array.isArray(__result)) console.log(__result.join('\\n'));`,
+    `${indent}  else console.log(String(__result));`,
+    `${indent}}`
+  ].join('\n');
+}
+
 function indentBlock(code, spaces = 2) {
   const pad = ' '.repeat(spaces);
   return code
@@ -6,114 +37,40 @@ function indentBlock(code, spaces = 2) {
     .join('\n');
 }
 
-function buildFsPrelude() {
+function buildFsCode(sourceCode) {
   return [
     "const fs = require('fs');",
-    "const input = fs.readFileSync(0, 'utf8').trim();",
-    ''
-  ].join('\n');
-}
-
-function buildReadlinePrelude(userCode) {
-  const indentedCode = indentBlock(userCode, 2);
-  return [
-    "const readline = require('readline');",
-    "const rl = readline.createInterface({ input: process.stdin, output: process.stdout });",
-    'const __lines = [];',
-    "rl.on('line', (line) => __lines.push(line));",
-    "rl.on('close', () => {",
-    "  const input = __lines.join('\\n').trim();",
-    indentedCode,
-    '});',
-    ''
-  ].join('\n');
-}
-
-function buildFunctionInvokeRuntime(solutionRef = 'solution') {
-  const solutionResolveLine = solutionRef === 'solution'
-    ? "const __sol = typeof solution === 'function' ? solution : undefined;"
-    : `const __sol = ${solutionRef};`;
-
-  return [
-    solutionResolveLine,
-    "if (typeof __sol !== 'function') {",
-    "  throw new Error('solution 함수가 정의되지 않았습니다. const solution = (input) => { }; 형태로 작성해주세요.');",
-    '}',
-    'const __nativeLog = console.log.bind(console);',
-    'let __didPrint = false;',
-    'console.log = (...args) => {',
-    '  __didPrint = true;',
-    '  __nativeLog(...args);',
-    '};',
-    'const __hasMultiLineInput = /[\\r\\n]/.test(input);',
-    'const __tokens = input.length ? input.split(/\\s+/) : [];',
-    "const __autoCast = (v) => (/^[-+]?\\d+(?:\\.\\d+)?$/.test(v) ? Number(v) : v);",
-    'const __arity = Number(__sol.length) || 0;',
-    "if (__arity > 1 && __hasMultiLineInput) {",
-    "  throw new Error('Multi-parameter mode supports single-line input only. Use solution(input) for complex input.');",
-    '}',
-    'const __args = __arity <= 1 ? [input] : __tokens.slice(0, __arity).map(__autoCast);',
-    'const __print = (value) => {',
-    '  if (__didPrint) return;',
-    '  if (value === undefined) return;',
-    "  if (Array.isArray(value)) console.log(value.join('\\n'));",
-    "  else if (value && typeof value === 'object') console.log(JSON.stringify(value));",
-    '  else console.log(String(value));',
-    '};',
-    'const __ret = __sol(...__args);',
-    "if (__ret && typeof __ret.then === 'function') {",
-    '  __ret.then(__print).catch((err) => { throw err; });',
-    '} else {',
-    '  __print(__ret);',
-    '}',
-    ''
-  ].join('\n');
-}
-
-function stripComments(sourceCode) {
-  return sourceCode
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
-}
-
-function buildFunctionRuntime(sourceCode) {
-  const trimmed = sourceCode.trim();
-  const usesModuleExports = /module\.exports\s*=/.test(trimmed);
-  const codeWithoutComments = stripComments(trimmed);
-  const definesSolution =
-    /\b(?:async\s+)?function\s+solution\s*\(/.test(codeWithoutComments) ||
-    /\b(?:const|let|var)\s+solution\s*=/.test(codeWithoutComments);
-
-  if (usesModuleExports) {
-    return [
-      'const module = { exports: {} };',
-      'const exports = module.exports;',
-      trimmed,
-      '',
-      buildFunctionInvokeRuntime('module.exports'),
-      ''
-    ].join('\n');
-  }
-
-  if (!definesSolution) {
-    return `${trimmed}\n`;
-  }
-
-  return [
-    trimmed,
+    "const input = fs.readFileSync('/dev/stdin').toString().trim();",
     '',
-    buildFunctionInvokeRuntime('solution'),
-    ''
+    sourceCode,
+    '',
+    buildPrintBlock()
+  ].join('\n');
+}
+
+function buildReadlineCode(sourceCode) {
+  return [
+    'const readline = require("readline");',
+    'const rl = readline.createInterface({ input: process.stdin, output: process.stdout });',
+    'const __lines = [];',
+    'rl.on("line", (line) => __lines.push(line));',
+    'rl.on("close", () => {',
+    "  const input = __lines.join('\\n').trim();",
+    '',
+    indentBlock(sourceCode),
+    '',
+    buildPrintBlock('  '),
+    '  process.exit();',
+    '});'
   ].join('\n');
 }
 
 export function compileSubmission({ sourceCode, ioMode }) {
-  const normalizedIoMode = ioMode === 'fs' ? 'fs' : 'readline';
-  const runtimeCode = buildFunctionRuntime(sourceCode);
+  const normalized = normalizeSource(sourceCode).trim();
+  validateSource(normalized);
 
-  if (normalizedIoMode === 'fs') {
-    return `${buildFsPrelude()}${runtimeCode}`;
+  if (ioMode === 'fs') {
+    return buildFsCode(normalized);
   }
-
-  return buildReadlinePrelude(runtimeCode);
+  return buildReadlineCode(normalized);
 }

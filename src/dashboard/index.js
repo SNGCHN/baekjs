@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import chalk from 'chalk';
 import { createInterface } from 'readline/promises';
 import readline from 'readline';
@@ -20,7 +21,7 @@ import { formatPath } from '../utils/string.js';
 import { createSpinner, normalizeError, getMyMenus, BOTTOM_TABS } from './constants.js';
 import { enterAltBuffer, leaveAltBuffer, hideCursor, showCursor } from './terminal.js';
 import { renderScreen } from './renderer.js';
-import { loadProblemListView, makeInitialView } from './views.js';
+import { loadProblemListView, makeInitialView, buildSettingsView } from './views.js';
 import { progressBar } from './constants.js';
 
 /* ── prompt helpers ── */
@@ -212,9 +213,9 @@ export async function runDashboard() {
     render();
   };
   const waitForAnyKey = async () => {
+    // raw mode는 이미 켜져 있는 상태에서 호출됨
+    process.stdin.resume();
     await new Promise((resolve) => {
-      if (process.stdin.isTTY) process.stdin.setRawMode(true);
-      process.stdin.resume();
       process.stdin.once('keypress', resolve);
     });
   };
@@ -258,6 +259,7 @@ export async function runDashboard() {
       actions: [
         { id: 'test', label: '예제 테스트 실행 (t)' },
         { id: 'export', label: '코드 변환 [제출용] (e)' },
+        { id: 'open', label: '문제 페이지 열기 (o)' },
         { id: 'back', label: '목록으로 돌아가기 (Esc)' },
         { id: 'quit', label: '대시보드 종료 (q)' }
       ]
@@ -563,6 +565,9 @@ export async function runDashboard() {
       } else if (key?.name === 'e') {
         current.index = Math.max(0, current.actions.findIndex(a => a.id === 'export'));
         key.name = 'return';
+      } else if (key?.name === 'o') {
+        current.index = Math.max(0, current.actions.findIndex(a => a.id === 'open'));
+        key.name = 'return';
       } else if (key?.name === 'j') {
         state.scrollOffset += 1;
         render();
@@ -613,6 +618,13 @@ export async function runDashboard() {
         const selectedAction = current.actions[current.index];
         if (!selectedAction) return;
 
+        if (selectedAction.id === 'settings') {
+          state.viewStack.push(buildSettingsView(state.config));
+          state.scrollOffset = 0;
+          render();
+          return;
+        }
+
         if (selectedAction.id === 'switch') {
           suspendDashboardUi();
           try {
@@ -655,6 +667,37 @@ export async function runDashboard() {
         }
       }
 
+      if (current.type === 'settings') {
+        const selected = current.items[current.index];
+        if (!selected) return;
+
+        if (selected.id === 'back') {
+          await goBack();
+          return;
+        }
+
+        if (selected.id === 'ioMode') {
+          const next = state.config.ioMode === 'readline' ? 'fs' : 'readline';
+          state.config = { ...state.config, ioMode: next };
+          saveConfig(state.config, state.projectRoot);
+          selected.value = next;
+          state.statusMessage = `입력 방식: ${next}`;
+          render();
+          return;
+        }
+
+        if (selected.id === 'templateComments') {
+          const next = !state.config.templateComments;
+          state.config = { ...state.config, templateComments: next };
+          saveConfig(state.config, state.projectRoot);
+          selected.value = next;
+          state.statusMessage = `템플릿 주석: ${next ? 'ON' : 'OFF'}`;
+          render();
+          return;
+        }
+        return;
+      }
+
       if (current.type === 'problem-detail') {
         const selectedAction = current.actions[current.index];
         if (!selectedAction) return;
@@ -669,8 +712,21 @@ export async function runDashboard() {
           return;
         }
 
+        if (selectedAction.id === 'open') {
+          const url = `https://www.acmicpc.net/problem/${current.problem.problemId}`;
+          const cmd = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
+          exec(cmd);
+          state.statusMessage = `문제 페이지 열기: ${url}`;
+          render();
+          return;
+        }
+
         if (selectedAction.id === 'test' || selectedAction.id === 'export') {
-          suspendDashboardUi();
+          // raw mode를 토글하지 않고 alt buffer와 커서만 전환
+          // (spawnSync 후 Windows에서 setRawMode EPIPE 방지)
+          detachKeyListener();
+          showCursor();
+          leaveAltBuffer();
           const originalExitCode = process.exitCode;
           process.exitCode = 0;
           try {
@@ -688,7 +744,10 @@ export async function runDashboard() {
             console.error(chalk.red(`\nError: ${normalizeError(error)}\n`));
           } finally {
             process.exitCode = originalExitCode;
-            resumeDashboardUi();
+            enterAltBuffer();
+            hideCursor();
+            attachKeyListener();
+            render();
           }
           return;
         }

@@ -52,8 +52,22 @@ export function buildProfileView() {
     title: '내 정보',
     index: 0,
     actions: [
+      { id: 'settings', label: '설정' },
       { id: 'switch', label: '계정 전환' },
       { id: 'logout', label: '로그아웃' }
+    ]
+  };
+}
+
+export function buildSettingsView(config) {
+  return {
+    type: 'settings',
+    title: '설정',
+    index: 0,
+    items: [
+      { id: 'ioMode', label: '입력 방식', value: config.ioMode },
+      { id: 'templateComments', label: '템플릿 주석', value: config.templateComments },
+      { id: 'back', label: '돌아가기' }
     ]
   };
 }

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { ensureConfigInteractive, getProjectRoot, isValidProblemId } from '../config.js';
+import { ensureConfigInteractive, getProjectRoot, isValidProblemId, stripTemplateComments } from '../config.js';
 
 export async function createProblem(problemId) {
   if (!isValidProblemId(problemId)) {
@@ -23,12 +23,15 @@ export async function createProblem(problemId) {
     return;
   }
 
-  await ensureConfigInteractive(projectRoot);
+  const config = await ensureConfigInteractive(projectRoot);
 
   const templatePath = new URL('../templates/function.js', import.meta.url);
 
   try {
-    const templateContent = fs.readFileSync(templatePath, 'utf-8');
+    let templateContent = fs.readFileSync(templatePath, 'utf-8');
+    if (!config.templateComments) {
+      templateContent = stripTemplateComments(templateContent);
+    }
     fs.writeFileSync(filePath, templateContent, 'utf-8');
     if (projectRoot !== process.cwd()) {
       console.log(chalk.blue(`Using project root: ${projectRoot}`));
