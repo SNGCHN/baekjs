@@ -8,7 +8,7 @@
 </p>
 
 ```bash
-npm i baekjs
+npm i -g baekjs
 ```
 
 ---
